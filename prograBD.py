@@ -2,8 +2,34 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import os
+import psycopg2
 
 #WARN: https://github.com/AlanArenas197/interfazBaseDatos
+
+class Connexion:
+    def __init__(self):
+        self.user = "root"
+        self.password = ""
+        self.database = "dbDiagnostico"
+        self.host = "localhost"
+        self.conn = None
+    
+    def open(self):
+        try:
+            self.conn = psycopg2.connect(
+                database = self.database,
+                host = self.host,
+                user = self.user,
+                passwd=self.password
+            )
+            return self.conn
+        except:
+            messagebox.showerror("Error de la conexión", "No se pudo conectar a la base de datos")
+            return None
+    
+    def close(self):
+        if self.conn:
+            self.conn.close()
 
 class LoginWindow(tk.Toplevel):
     def __init__(self, mainWin):
@@ -46,7 +72,7 @@ class Application(ttk.Frame):
         
         mainWin.title("Sistema MediSys")
         
-        mainWin.geometry("750x300")
+        mainWin.geometry("750x450")
         self.notebook = ttk.Notebook(self)
 
         #-----------------------EMPLEADOS-----------------------#
