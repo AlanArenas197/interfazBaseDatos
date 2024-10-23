@@ -81,7 +81,59 @@ class Application(ttk.Frame):
         pestanaEmpleado.grid_columnconfigure(0, weight=1)
         pestanaEmpleado.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(pestanaEmpleado, text="PESTAÑA DE EMPLEADO").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        ttk.Label(pestanaEmpleado, text="Ingrese ID a buscar:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        txIdBuscar = ttk.Entry(pestanaEmpleado, width=30)
+        txIdBuscar.grid(row=0, column=1, padx=10, pady=10)
+
+        btnBuscar = ttk.Button(pestanaEmpleado, text="Buscar")
+        btnBuscar.grid(row=0, column=2, padx=10, pady=10)
+
+        ttk.Label(pestanaEmpleado, text="Nombre:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        txNombre = ttk.Entry(pestanaEmpleado, width=30)
+        txNombre.grid(row=1, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Dirección:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        txCorreo = ttk.Entry(pestanaEmpleado, width=30)
+        txCorreo.grid(row=2, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Teléfono:").grid(row=2, column=2, padx=10, pady=5, sticky="e")
+        txTelefono = ttk.Entry(pestanaEmpleado, width=30)
+        txTelefono.grid(row=2, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Fecha de Nac.:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        txFechaNac = ttk.Entry(pestanaEmpleado, width=30)
+        txFechaNac.grid(row=3, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Sexo:").grid(row=3, column=2, padx=10, pady=5, sticky="e")
+        txSexo = ttk.Entry(pestanaEmpleado, width=30)
+        txSexo.grid(row=3, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Sueldo:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
+        txSueldo = ttk.Entry(pestanaEmpleado, width=30)
+        txSueldo.grid(row=4, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Turno:").grid(row=4, column=2, padx=10, pady=5, sticky="e")
+        txTurno = ttk.Entry(pestanaEmpleado, width=30)
+        txTurno.grid(row=4, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaEmpleado, text="Contraseña:").grid(row=5, column=0, padx=10, pady=5, sticky="e")
+        txPassword = ttk.Entry(pestanaEmpleado, width=30)
+        txPassword.grid(row=5, column=1, padx=10, pady=5)
+
+        btnNuevoUsuario = ttk.Button(pestanaEmpleado, text="Nuevo")
+        btnNuevoUsuario.grid(row=7, column=0, padx=10, pady=10, sticky="e")
+
+        btnGuardarUsuario = ttk.Button(pestanaEmpleado, text="Guardar")
+        btnGuardarUsuario.grid(row=7, column=1, padx=10, pady=10, sticky="w")
+
+        btnCancelarUsuario = ttk.Button(pestanaEmpleado, text="Cancelar")
+        btnCancelarUsuario.grid(row=7, column=2, padx=10, pady=10, sticky="w")
+
+        btnEditarUsuario = ttk.Button(pestanaEmpleado, text="Editar")
+        btnEditarUsuario.grid(row=7, column=3, padx=10, pady=10, sticky="w")
+
+        btnEliminarUsuario = ttk.Button(pestanaEmpleado, text="Eliminar")
+        btnEliminarUsuario.grid(row=7, column=4, padx=10, pady=10, sticky="w")
 
         self.notebook.add(pestanaEmpleado, text="Emplados")
 
