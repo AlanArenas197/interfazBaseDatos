@@ -8,6 +8,7 @@ Este codigo de python se requiere de ciertas interfaces de Python para poder fun
 - Tkinter - pip install tk
 - Pillow - pip install pillow
 - Psycopg2 - pip install psycopg2
+- Dotenv - pip install python-dotenv
 
 ### Integrantes del Equipo 1:
 
