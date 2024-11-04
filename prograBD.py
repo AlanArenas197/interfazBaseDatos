@@ -3,15 +3,18 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import os
 import psycopg2
+import dotenv
+
+dotenv.load_dotenv()
 
 #WARN: https://github.com/AlanArenas197/interfazBaseDatos
 
 class Connection:   #? Se modificó el nombre de la clase 'Connection'.
     def __init__(self):
-        self.user = "postgres"          #? Se modificó el nombre de 'root' a 'postgres'.
-        self.password = "dev"           #? Password del alumno 'Arenas Venegas Alan Marcel'. (CAMBIAR SI ES NECESARIO)
-        self.database = "dbDiagnostico" #? Nombre de la base de datos.
-        self.host = "localhost"         #? Hosting del servidor PostgreSQL.
+        self.user = os.getenv("DB_USER", "postgres")
+        self.password = os.getenv("DB_PASSWORD", "dev")
+        self.database = os.getenv("DB_NAME", "dbDiagnostico")
+        self.host = os.getenv("DB_HOST", "localhost")
         self.conn = None
     
     def open(self):
