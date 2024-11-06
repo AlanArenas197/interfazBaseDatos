@@ -9,8 +9,9 @@ dotenv.load_dotenv()
 
 #WARN: https://github.com/AlanArenas197/interfazBaseDatos
 
-class Connection:   #? Se modificó el nombre de la clase 'Connection'.
+class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .env.
     def __init__(self):
+        #? Si no se encuentran variables en el archivo '.env.example', esas variables se meten por defecto.
         self.user = os.getenv("DB_USER", "postgres")
         self.password = os.getenv("DB_PASSWORD", "dev")
         self.database = os.getenv("DB_NAME", "dbDiagnostico")
@@ -19,7 +20,7 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection'.
     
     def open(self):
         try:
-            self.conn = psycopg2.connect(   #? Función para conectarse desde el código Python, hacia el servidor PostgreSQL.
+            self.conn = psycopg2.connect(
                 database = self.database,
                 host = self.host,
                 user = self.user,
@@ -27,14 +28,27 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection'.
             )
             return self.conn
         except:
-            messagebox.showerror("Error de la conexión", "No se pudo conectar a la base de datos")  #? Mensaje de error si no se encuentra/conecta a la base de datos
+            messagebox.showerror("Error de la conexión", "No se pudo conectar a la base de datos")
             return None
     
     def close(self):
         if self.conn:
             self.conn.close()
 
-    #? Se agregó las funciones CRUD.
+    #? Se agregó la función de Login en el programa.
+    #!---------------------LOG-IN---------------------#
+
+    def verifyUsers(self, codigo, contrasenia):
+        conn = self.open()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT codigo, nombre FROM empleados WHERE codigo = %s AND contrasenia = %s", (codigo, contrasenia))
+            empleado = cur.fetchone()  #? Devuelve el código y nombre del empleado si es válido
+            cur.close()                
+            self.close()
+            return empleado  #? Retornará el codigo y nombre si es que existe
+        return None
+
     #!---------------------EMPLEADOS---------------------#
 
     def saveEmpleado(self, codigo, nombre, direccion, telefono, fecha_nac, sexo, sueldo, turno, contrasenia):
@@ -155,6 +169,66 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection'.
         finally:
             self.close()
 
+    #!---------------------PACIENTES---------------------#
+
+    def savePaciente(self, codigo, nombre, direccion, telefono, fecha_nac, sexo, edad, estatura):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO pacientes (codigo, nombre, direccion, telefono, fecha_nac, sexo, edad, estatura)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (codigo, nombre, direccion, telefono, fecha_nac, sexo, edad, estatura))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Paciente insertado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo insertar el paciente: {e}")
+        finally:
+            self.close()
+
+    def updatePaciente(self, codigo, nombre, direccion, telefono, fecha_nac, sexo, edad, estatura):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE pacientes SET nombre=%s, direccion=%s, telefono=%s, fecha_nac=%s, sexo=%s, edad=%s, estatura=%s
+                WHERE codigo=%s
+            """, (nombre, direccion, telefono, fecha_nac, sexo, edad, estatura, codigo))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Paciente actualizado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar el paciente: {e}")
+        finally:
+            self.close()
+
+    def searchPaciente(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM pacientes WHERE codigo = %s", (codigo,))
+            doctor = cur.fetchone()
+            cur.close()
+            return doctor
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo buscar el paciente: {e}")
+        finally:
+            self.close()
+    
+    def deletePaciente(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM pacientes WHERE codigo = %s", (codigo,))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Paciente eliminado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar el paciente: {e}")
+        finally:
+            self.close()
+
 class LoginWindow(tk.Toplevel):
     def __init__(self, mainWin):
         super().__init__(mainWin)
@@ -176,13 +250,17 @@ class LoginWindow(tk.Toplevel):
         self.canBtn.pack(pady=1)
 
     def veriLogin(self):
-        user = self.userEntry.get()
-        passw = self.passEntry.get()
+        codigo = self.userEntry.get()
+        contrasenia = self.passEntry.get()
 
-        if (user == 'admin' and passw == '1234') or (user == 'dev' and passw == '1'):
+        conexion = Connection()
+        empleado = conexion.verifyUsers(codigo, contrasenia)
+        
+        if empleado:
+            codigo, nombre = empleado
             self.destroy()
             root.deiconify()
-            app = Application(root, user)
+            app = Application(root, codigo, nombre)
         else:
             messagebox.showerror("Error", "Usuario y/o Contraseña incorrecto(s)")
 
@@ -191,12 +269,15 @@ class LoginWindow(tk.Toplevel):
         self.passEntry.delete(0, 'end')
 
 class Application(ttk.Frame):
-    def __init__(self, mainWin, user):
+    def __init__(self, mainWin, codigo, nombre):
         super().__init__(mainWin)
         
-        mainWin.title("Sistema MediSys")
+        mainWin.title(f"Sistema MediSys - Hola {nombre}")
         
-        mainWin.geometry("1500x700")    #? Se modificó las dimensiones de la ventana principal
+        screen_width = mainWin.winfo_screenwidth()
+        screen_height = mainWin.winfo_screenheight()
+        
+        mainWin.geometry(f"{screen_width}x{screen_height}")    #? Se modificó las dimensiones de la ventana principal a pantalla completa
         self.notebook = ttk.Notebook(self)
 
         #-----------------------EMPLEADOS-----------------------#
@@ -217,11 +298,11 @@ class Application(ttk.Frame):
         self.txID.grid(row=1, column=1, padx=10, pady=5)
 
         ttk.Label(pestanaEmpleado, text="Nombre:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
-        self.txNombre = ttk.Entry(pestanaEmpleado, width=30)
+        self.txNombre = ttk.Entry(pestanaEmpleado, width=45)
         self.txNombre.grid(row=2, column=1, padx=10, pady=5)
 
         ttk.Label(pestanaEmpleado, text="Dirección:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
-        self.txDireccion = ttk.Entry(pestanaEmpleado, width=30)
+        self.txDireccion = ttk.Entry(pestanaEmpleado, width=45)
         self.txDireccion.grid(row=3, column=1, padx=10, pady=5)
 
         ttk.Label(pestanaEmpleado, text="Teléfono:").grid(row=3, column=2, padx=10, pady=5, sticky="e")
@@ -263,34 +344,34 @@ class Application(ttk.Frame):
         self.btnEliminarUsuario = ttk.Button(pestanaEmpleado, text="Eliminar", command=self.eliminarEmpleado)
         self.btnEliminarUsuario.grid(row=8, column=4, padx=10, pady=10, sticky="w")
 
-        ttk.Label(pestanaEmpleado, text="EMPLADOS:").grid(row=10, column=0, padx=10, pady=10, sticky="e")
+        ttk.Label(pestanaEmpleado, text="EMPLEADOS:").grid(row=10, column=0, padx=10, pady=10, sticky="e")
         self.btnMostrarEmpleados = ttk.Button(pestanaEmpleado, text="Mostrar", command=self.mostrarTodosEmpleados)
         self.btnMostrarEmpleados.grid(row=10, column=1, padx=10, pady=10)
 
-        self.treeEmpleados = ttk.Treeview(pestanaEmpleado, columns=("codigo", "nombre", "direccion", "telefono", "fecha_nac", "sexo", "sueldo", "turno", "contrasenia"), show="headings", height=3)
+        self.treeEmpleados = ttk.Treeview(pestanaEmpleado, columns=("codigo", "nombre", "direccion", "telefono", "fecha_nac", "sexo", "sueldo", "turno", "contrasenia"), show="headings", height=14)
         self.treeEmpleados.grid(row=11, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
         self.treeEmpleados.column("codigo", width=50)
         self.treeEmpleados.heading("codigo", text="Codigo")
 
-        self.treeEmpleados.column("nombre", width=100)
+        self.treeEmpleados.column("nombre", width=250)
         self.treeEmpleados.heading("nombre", text="Nombre")
 
         self.treeEmpleados.column("direccion", width=150)
         self.treeEmpleados.heading("direccion", text="Direccion")
 
-        self.treeEmpleados.column("telefono", width=80)
+        self.treeEmpleados.column("telefono", width=100)
         self.treeEmpleados.heading("telefono", text="Tel")
 
-        self.treeEmpleados.column("fecha_nac", width=90)
+        self.treeEmpleados.column("fecha_nac", width=100)
         self.treeEmpleados.heading("fecha_nac", text="Fech. Nac")
 
-        self.treeEmpleados.column("sexo", width=50)
+        self.treeEmpleados.column("sexo", width=80)
         self.treeEmpleados.heading("sexo", text="Sexo")
 
         self.treeEmpleados.column("sueldo", width=80)
         self.treeEmpleados.heading("sueldo", text="Sueldo")
 
-        self.treeEmpleados.column("turno", width=60)
+        self.treeEmpleados.column("turno", width=80)
         self.treeEmpleados.heading("turno", text="Turno")
 
         self.treeEmpleados.column("contrasenia", width=100)
@@ -316,11 +397,11 @@ class Application(ttk.Frame):
         self.txIDDoctor.grid(row=1, column=1, padx=10, pady=5)
 
         ttk.Label(pestanaDoctores, text="Nombre:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
-        self.txNombreDoctor = ttk.Entry(pestanaDoctores, width=30)
+        self.txNombreDoctor = ttk.Entry(pestanaDoctores, width=45)
         self.txNombreDoctor.grid(row=2, column=1, padx=10, pady=5)
 
         ttk.Label(pestanaDoctores, text="Dirección:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
-        self.txDireccionDoctor = ttk.Entry(pestanaDoctores, width=30)
+        self.txDireccionDoctor = ttk.Entry(pestanaDoctores, width=45)
         self.txDireccionDoctor.grid(row=3, column=1, padx=10, pady=5)
 
         ttk.Label(pestanaDoctores, text="Teléfono:").grid(row=3, column=2, padx=10, pady=5, sticky="e")
@@ -362,30 +443,30 @@ class Application(ttk.Frame):
         self.btnMostrarDoctores = ttk.Button(pestanaDoctores, text="Mostrar", command=self.mostrarTodosDoctor)
         self.btnMostrarDoctores.grid(row=9, column=1, padx=10, pady=10)
 
-        self.treeDoctores = ttk.Treeview(pestanaDoctores, columns=("codigo", "nombre", "direccion", "telefono", "fecha_nac", "sexo", "especialidad", "contrasenia"), show="headings", height=3)
+        self.treeDoctores = ttk.Treeview(pestanaDoctores, columns=("codigo", "nombre", "direccion", "telefono", "fecha_nac", "sexo", "especialidad", "contrasenia"), show="headings", height=14)
         self.treeDoctores.grid(row=10, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
         self.treeDoctores.column("codigo", width=50)
         self.treeDoctores.heading("codigo", text="Codigo")
 
-        self.treeDoctores.column("nombre", width=100)
+        self.treeDoctores.column("nombre", width=250)
         self.treeDoctores.heading("nombre", text="Nombre")
 
-        self.treeDoctores.column("direccion", width=150)
+        self.treeDoctores.column("direccion", width=250)
         self.treeDoctores.heading("direccion", text="Direccion")
 
-        self.treeDoctores.column("telefono", width=80)
+        self.treeDoctores.column("telefono", width=100)
         self.treeDoctores.heading("telefono", text="Tel")
 
-        self.treeDoctores.column("fecha_nac", width=90)
+        self.treeDoctores.column("fecha_nac", width=80)
         self.treeDoctores.heading("fecha_nac", text="Fech. Nac")
 
-        self.treeDoctores.column("sexo", width=50)
+        self.treeDoctores.column("sexo", width=80)
         self.treeDoctores.heading("sexo", text="Sexo")
 
-        self.treeDoctores.column("especialidad", width=80)
+        self.treeDoctores.column("especialidad", width=100)
         self.treeDoctores.heading("especialidad", text="Especialidad")
 
-        self.treeDoctores.column("contrasenia", width=100)
+        self.treeDoctores.column("contrasenia", width=80)
         self.treeDoctores.heading("contrasenia", text="Contra")
 
         self.notebook.add(pestanaDoctores, text="Doctores")
@@ -396,7 +477,89 @@ class Application(ttk.Frame):
         pestanaPacientes.grid_columnconfigure(0, weight=1)
         pestanaPacientes.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(pestanaPacientes, text="PESTAÑA DE PACIENTES").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        ttk.Label(pestanaPacientes, text="Ingrese Codigo:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.txIdPacienteBuscar = ttk.Entry(pestanaPacientes, width=30)
+        self.txIdPacienteBuscar.grid(row=0, column=1, padx=10, pady=10)
+
+        self.btnBuscarPaciente = ttk.Button(pestanaPacientes, text="Buscar", command=self.buscarPaciente)
+        self.btnBuscarPaciente.grid(row=0, column=2, padx=10, pady=10)
+
+        ttk.Label(pestanaPacientes, text="Codigo:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.txIDPaciente = ttk.Entry(pestanaPacientes, width=15)
+        self.txIDPaciente.grid(row=1, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Nombre:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        self.txNombrePaciente = ttk.Entry(pestanaPacientes, width=45)
+        self.txNombrePaciente.grid(row=2, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Dirección:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        self.txDireccionPaciente = ttk.Entry(pestanaPacientes, width=45)
+        self.txDireccionPaciente.grid(row=3, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Teléfono:").grid(row=3, column=2, padx=10, pady=5, sticky="e")
+        self.txTelefonoPaciente = ttk.Entry(pestanaPacientes, width=30)
+        self.txTelefonoPaciente.grid(row=3, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Fecha de Nac.:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
+        self.txFechaNacPaciente = ttk.Entry(pestanaPacientes, width=30)
+        self.txFechaNacPaciente.grid(row=4, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Sexo:").grid(row=4, column=2, padx=10, pady=5, sticky="e")
+        self.txSexoPaciente = ttk.Entry(pestanaPacientes, width=30)
+        self.txSexoPaciente.grid(row=4, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Edad:").grid(row=5, column=0, padx=10, pady=5, sticky="e")
+        self.txEdadPaciente = ttk.Entry(pestanaPacientes, width=30)
+        self.txEdadPaciente.grid(row=5, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaPacientes, text="Estatura:").grid(row=5, column=2, padx=10, pady=5, sticky="e")
+        self.txEstaturaPaciente = ttk.Entry(pestanaPacientes, width=30)
+        self.txEstaturaPaciente.grid(row=5, column=3, padx=10, pady=5)
+
+        self.btnNuevoPaciente = ttk.Button(pestanaPacientes, text="Nuevo", command=self.limpiarDatosPaciente)
+        self.btnNuevoPaciente.grid(row=7, column=0, padx=10, pady=10, sticky="e")
+
+        self.btnGuardarPaciente = ttk.Button(pestanaPacientes, text="Guardar", command=self.guardarPaciente)
+        self.btnGuardarPaciente.grid(row=7, column=1, padx=10, pady=10, sticky="w")
+
+        self.btnCancelarPaciente = ttk.Button(pestanaPacientes, text="Cancelar", command=self.limpiarDatosPaciente)
+        self.btnCancelarPaciente.grid(row=7, column=2, padx=10, pady=10, sticky="w")
+
+        self.btnEditarPaciente = ttk.Button(pestanaPacientes, text="Editar", command=self.actualizarPaciente)
+        self.btnEditarPaciente.grid(row=7, column=3, padx=10, pady=10, sticky="w")
+
+        self.btnEliminarPaciente = ttk.Button(pestanaPacientes, text="Eliminar", command=self.eliminarPaciente)
+        self.btnEliminarPaciente.grid(row=7, column=4, padx=10, pady=10, sticky="w")
+
+        ttk.Label(pestanaPacientes, text="PACIENTES:").grid(row=9, column=0, padx=10, pady=10, sticky="e")
+        self.btnMostrarPacientes = ttk.Button(pestanaPacientes, text="Mostrar", command=self.mostrarTodosPaciente)
+        self.btnMostrarPacientes.grid(row=9, column=1, padx=10, pady=10)
+
+        self.treePacientes = ttk.Treeview(pestanaPacientes, columns=("codigo", "nombre", "direccion", "telefono", "fecha_nac", "sexo", "edad", "estatura"), show="headings", height=14)
+        self.treePacientes.grid(row=10, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
+        self.treePacientes.column("codigo", width=50)
+        self.treePacientes.heading("codigo", text="Codigo")
+
+        self.treePacientes.column("nombre", width=250)
+        self.treePacientes.heading("nombre", text="Nombre")
+
+        self.treePacientes.column("direccion", width=250)
+        self.treePacientes.heading("direccion", text="Direccion")
+
+        self.treePacientes.column("telefono", width=100)
+        self.treePacientes.heading("telefono", text="Tel")
+
+        self.treePacientes.column("fecha_nac", width=80)
+        self.treePacientes.heading("fecha_nac", text="Fech. Nac")
+
+        self.treePacientes.column("sexo", width=80)
+        self.treePacientes.heading("sexo", text="Sexo")
+
+        self.treePacientes.column("edad", width=100)
+        self.treePacientes.heading("edad", text="Edad")
+
+        self.treePacientes.column("estatura", width=80)
+        self.treePacientes.heading("estatura", text="Estat.")
 
         self.notebook.add(pestanaPacientes, text="Pacientes")
 
@@ -415,11 +578,16 @@ class Application(ttk.Frame):
         self.notebook.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         self.pack()
 
+        #-----------------------CERRAR SESIÓN----------------------#
+
+        logout_button = ttk.Button(self, text="Cerrar Sesión", command=self.cerrar_sesion)
+        logout_button.grid(padx=10, pady=10)
+
         #-----------------------IMAGEN-----------------------#
 
         self.addLogo(mainWin)
 
-        #-----------------------CONFG DE LA IMAGEN-----------------------#
+    #-----------------------CONFG DE LA IMAGEN-----------------------#
         
     def addLogo(self, mainWin):
         currentDir = os.path.dirname(os.path.abspath(__file__))
@@ -432,6 +600,12 @@ class Application(ttk.Frame):
 
         logoLabel = tk.Label(mainWin, image=self.logo)
         logoLabel.pack(side="bottom", pady=10)
+
+    #-----------------------CONFG DEL CERRAR SESIÓN-----------------------#
+
+    def cerrar_sesion(self):
+        self.master.withdraw()
+        login = LoginWindow(self.master)
     
     #-----------------------CONFG DEL CRUD-----------------------#
 
@@ -525,7 +699,7 @@ class Application(ttk.Frame):
         conn = conexion.open()
         if conn:
             cur = conn.cursor()
-            cur.execute("SELECT * FROM empleados")
+            cur.execute("SELECT * FROM empleados ORDER by codigo")
             empleados = cur.fetchall()
 
             for empleado in empleados:
@@ -626,6 +800,102 @@ class Application(ttk.Frame):
 
             for doctor in doctores:
                 self.treeDoctores.insert("", "end", values=doctor)
+
+            cur.close()
+            conexion.close()
+        else:
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+    
+    #!PACIENTES
+
+    def limpiarDatosPaciente(self):
+        self.txIDPaciente.delete(0, 'end')
+        self.txNombrePaciente.delete(0, 'end')
+        self.txDireccionPaciente.delete(0, 'end')
+        self.txTelefonoPaciente.delete(0, 'end')
+        self.txFechaNacPaciente.delete(0, 'end')
+        self.txSexoPaciente.delete(0, 'end')
+        self.txEdadPaciente.delete(0, 'end')
+        self.txEstaturaPaciente.delete(0, 'end')
+
+        for item in self.treePacientes.get_children():
+            self.treePacientes.delete(item)
+    
+    def guardarPaciente(self):
+        conexion = Connection()
+        conexion.savePaciente(
+            self.txIDPaciente.get(),
+            self.txNombrePaciente.get(),
+            self.txDireccionPaciente.get(),
+            self.txTelefonoPaciente.get(),
+            self.txFechaNacPaciente.get(),
+            self.txSexoPaciente.get(),
+            self.txEdadPaciente.get(),
+            self.txEstaturaPaciente.get()
+        )
+    
+    def actualizarPaciente(self):
+        if self.validarCamposPaciente():
+            conexion = Connection()
+            conexion.updatePaciente(
+                self.txIDPaciente.get(),
+                self.txNombrePaciente.get(),
+                self.txDireccionPaciente.get(),
+                self.txTelefonoPaciente.get(),
+                self.txFechaNacPaciente.get(),
+                self.txSexoPaciente.get(),
+                self.txEdadPaciente.get(),
+                self.txEstaturaPaciente.get()
+            )
+            self.mostrarTodosPaciente()
+    
+    def eliminarPaciente(self):
+        conexion = Connection()
+        conexion.deletePaciente(self.txIdPacienteBuscar.get())
+    
+    def buscarPaciente(self):
+        conexion = Connection()
+        paciente = conexion.searchPaciente(self.txIdPacienteBuscar.get())
+        if paciente:
+            self.txIDPaciente.delete(0, 'end')
+            self.txNombrePaciente.delete(0, 'end')
+            self.txDireccionPaciente.delete(0, 'end')
+            self.txTelefonoPaciente.delete(0, 'end')
+            self.txFechaNacPaciente.delete(0, 'end')
+            self.txSexoPaciente.delete(0, 'end')
+            self.txEdadPaciente.delete(0, 'end')
+            self.txEstaturaPaciente.delete(0, 'end')
+            self.txIDPaciente.insert(0, paciente[0])
+            self.txNombrePaciente.insert(0, paciente[1])
+            self.txDireccionPaciente.insert(0, paciente[2])
+            self.txTelefonoPaciente.insert(0, paciente[3])
+            self.txFechaNacPaciente.insert(0, paciente[4])
+            self.txSexoPaciente.insert(0, paciente[5])
+            self.txEdadPaciente.insert(0, paciente[6])
+            self.txEstaturaPaciente.insert(0, paciente[7])
+        else:
+            messagebox.showerror("Error", "¡Paciente no encontrado!")
+
+    def validarCamposPaciente(self):
+        if not self.txIDPaciente.get() or not self.txNombrePaciente.get() or not self.txDireccionPaciente.get() or not self.txTelefonoPaciente.get() or \
+           not self.txFechaNacPaciente.get() or not self.txSexoPaciente.get() or not self.txEdadPaciente.get() or not self.txEstaturaPaciente.get():
+            messagebox.showerror("Error", "Todos los campos deben ser llenados.")
+            return False
+        return True
+    
+    def mostrarTodosPaciente(self):
+        for item in self.treePacientes.get_children():
+            self.treePacientes.delete(item)
+
+        conexion = Connection()
+        conn = conexion.open()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM pacientes ORDER by codigo")
+            pacientes = cur.fetchall()
+
+            for paciente in pacientes:
+                self.treePacientes.insert("", "end", values=paciente)
 
             cur.close()
             conexion.close()
