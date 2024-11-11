@@ -228,6 +228,82 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
             messagebox.showerror("Error", f"No se pudo eliminar el paciente: {e}")
         finally:
             self.close()
+    
+    #!---------------------CITAS---------------------#
+
+    def saveCita(self, codigo, paciente, doctor, dia, hora):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT * FROM citas 
+                WHERE (paciente = %s OR doctor = %s) AND dia = %s AND hora = %s
+            """, (paciente, doctor, dia, hora))
+            if cur.fetchone():
+                messagebox.showerror("Error", "Conflicto de horarios: el paciente o doctor ya tiene una cita en esta fecha y hora.")
+                return
+
+            cur.execute("""
+                INSERT INTO citas (codigo, paciente, doctor, dia, hora) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (codigo, paciente, doctor, dia, hora))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Cita guardada correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar la cita: {e}")
+        finally:
+            self.close()
+
+    def updateCita(self, codigo, paciente, doctor, dia, hora):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT * FROM citas 
+                WHERE (paciente = %s OR doctor = %s) AND dia = %s AND hora = %s AND codigo != %s
+            """, (paciente, doctor, dia, hora, codigo))
+            if cur.fetchone():
+                messagebox.showerror("Error", "Conflicto de horarios: el paciente o doctor ya tiene una cita en esta fecha y hora.")
+                return
+
+            cur.execute("""
+                UPDATE citas SET paciente=%s, doctor=%s, dia=%s, hora=%s
+                WHERE codigo=%s
+            """, (paciente, doctor, dia, hora, codigo))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Cita actualizada correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar la cita: {e}")
+        finally:
+            self.close()
+
+    def searchCita(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM citas WHERE codigo = %s", (codigo,))
+            cita = cur.fetchone()
+            cur.close()
+            return cita
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo buscar la cita: {e}")
+        finally:
+            self.close()
+
+    def deleteCita(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM citas WHERE codigo = %s", (codigo,))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Cita eliminada correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar la cita: {e}")
+        finally:
+            self.close()
 
 class LoginWindow(tk.Toplevel):
     def __init__(self, mainWin):
@@ -253,16 +329,21 @@ class LoginWindow(tk.Toplevel):
         codigo = self.userEntry.get()
         contrasenia = self.passEntry.get()
 
-        conexion = Connection()
-        empleado = conexion.verifyUsers(codigo, contrasenia)
-        
-        if empleado:
-            codigo, nombre = empleado
+        if codigo == 'admin' and contrasenia == '1234':
             self.destroy()
             root.deiconify()
-            app = Application(root, codigo, nombre)
+            app = Application(root, codigo, "Administrador")
         else:
-            messagebox.showerror("Error", "Usuario y/o Contraseña incorrecto(s)")
+            conexion = Connection()
+            empleado = conexion.verifyUsers(codigo, contrasenia)
+            
+            if empleado:
+                codigo, nombre = empleado
+                self.destroy()
+                root.deiconify()
+                app = Application(root, codigo, nombre)
+            else:
+                messagebox.showerror("Error", "Usuario y/o Contraseña incorrecto(s)")
 
     def cancelLog(self):
         self.userEntry.delete(0, 'end')
@@ -377,7 +458,8 @@ class Application(ttk.Frame):
         self.treeEmpleados.column("contrasenia", width=100)
         self.treeEmpleados.heading("contrasenia", text="Contra")
 
-        self.notebook.add(pestanaEmpleado, text="Emplados")
+        if nombre == "Administrador":
+            self.notebook.add(pestanaEmpleado, text="Emplados")
 
         #-----------------------DOCTORES-----------------------#
 
@@ -469,7 +551,8 @@ class Application(ttk.Frame):
         self.treeDoctores.column("contrasenia", width=80)
         self.treeDoctores.heading("contrasenia", text="Contra")
 
-        self.notebook.add(pestanaDoctores, text="Doctores")
+        if nombre == "Administrador":
+            self.notebook.add(pestanaDoctores, text="Doctores")
 
         #-----------------------PACIENTES-----------------------#
 
@@ -569,7 +652,68 @@ class Application(ttk.Frame):
         pestanaCitas.grid_columnconfigure(0, weight=1)
         pestanaCitas.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(pestanaCitas, text="PESTAÑA DE CITAS").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        ttk.Label(pestanaCitas, text="Ingrese Codigo:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.txIdCitaBuscar = ttk.Entry(pestanaCitas, width=30)
+        self.txIdCitaBuscar.grid(row=0, column=1, padx=10, pady=10)
+
+        self.btnBuscarCita = ttk.Button(pestanaCitas, text="Buscar", command=self.buscarCita)
+        self.btnBuscarCita.grid(row=0, column=2, padx=10, pady=10)
+
+        ttk.Label(pestanaCitas, text="Codigo:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.txIDCita = ttk.Entry(pestanaCitas, width=15)
+        self.txIDCita.grid(row=1, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaCitas, text="Paciente:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        self.comboPacienteCita = ttk.Combobox(pestanaCitas, values=self.obtenerPacientes(), width=30)
+        self.comboPacienteCita.grid(row=2, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaCitas, text="Doctores:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        self.comboDoctorCita = ttk.Combobox(pestanaCitas, values=self.obtenerDoctores(), width=30)
+        self.comboDoctorCita.grid(row=3, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaCitas, text="Dia:").grid(row=3, column=2, padx=10, pady=5, sticky="e")
+        self.txDiaCita = ttk.Entry(pestanaCitas, width=30)
+        self.txDiaCita.grid(row=3, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaCitas, text="Hora:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
+        self.txHoraCita = ttk.Entry(pestanaCitas, width=30)
+        self.txHoraCita.grid(row=4, column=1, padx=10, pady=5)
+
+        self.btnNuevoCita = ttk.Button(pestanaCitas, text="Nuevo", command=self.limpiarCamposCita)
+        self.btnNuevoCita.grid(row=7, column=0, padx=10, pady=10, sticky="e")
+
+        self.btnGuardarCita = ttk.Button(pestanaCitas, text="Guardar", command=self.guardarCita)
+        self.btnGuardarCita.grid(row=7, column=1, padx=10, pady=10, sticky="w")
+
+        self.btnCancelarCita = ttk.Button(pestanaCitas, text="Cancelar", command=self.limpiarCamposCita)
+        self.btnCancelarCita.grid(row=7, column=2, padx=10, pady=10, sticky="w")
+
+        self.btnEditarCita = ttk.Button(pestanaCitas, text="Editar", command=self.actualizarCita)
+        self.btnEditarCita.grid(row=7, column=3, padx=10, pady=10, sticky="w")
+
+        self.btnEliminarCita = ttk.Button(pestanaCitas, text="Eliminar", command=self.eliminarCita)
+        self.btnEliminarCita.grid(row=7, column=4, padx=10, pady=10, sticky="w")
+
+        ttk.Label(pestanaCitas, text="CITAS:").grid(row=9, column=0, padx=10, pady=10, sticky="e")
+        self.btnMostrarCitas = ttk.Button(pestanaCitas, text="Mostrar", command=self.mostrarTodasCitas)
+        self.btnMostrarCitas.grid(row=9, column=1, padx=10, pady=10)
+
+        self.treeCitas = ttk.Treeview(pestanaCitas, columns=("codigo", "paciente", "doctor", "dia", "hora"), show="headings", height=14)
+        self.treeCitas.grid(row=10, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
+        self.treeCitas.column("codigo", width=50)
+        self.treeCitas.heading("codigo", text="Codigo")
+
+        self.treeCitas.column("paciente", width=250)
+        self.treeCitas.heading("paciente", text="Paciente")
+
+        self.treeCitas.column("doctor", width=250)
+        self.treeCitas.heading("doctor", text="Doctor")
+
+        self.treeCitas.column("dia", width=100)
+        self.treeCitas.heading("dia", text="Dia")
+
+        self.treeCitas.column("hora", width=80)
+        self.treeCitas.heading("hora", text="Hora")
 
         self.notebook.add(pestanaCitas, text="Citas")
 
@@ -901,6 +1045,110 @@ class Application(ttk.Frame):
             conexion.close()
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+
+    #!CITAS
+
+    def guardarCita(self):
+        if self.validarCamposCita():
+            conexion = Connection()
+            conexion.saveCita(
+                self.txIDCita.get(),
+                self.comboPacienteCita.get(),
+                self.comboDoctorCita.get(),
+                self.txDiaCita.get(),
+                self.txHoraCita.get()
+            )
+            self.mostrarTodasCitas()
+
+    def actualizarCita(self):
+        if self.validarCamposCita():
+            conexion = Connection()
+            conexion.updateCita(
+                self.txIDCita.get(),
+                self.comboPacienteCita.get(),
+                self.comboDoctorCita.get(),
+                self.txDiaCita.get(),
+                self.txHoraCita.get()
+            )
+            self.mostrarTodasCitas()
+
+    def buscarCita(self):
+        conexion = Connection()
+        cita = conexion.searchCita(self.txIdCitaBuscar.get())
+        if cita:
+            self.txIDCita.delete(0, 'end')
+            self.txIDCita.insert(0, cita[0])
+            self.comboPacienteCita.set(cita[1])
+            self.comboDoctorCita.set(cita[2])
+            self.txDiaCita.delete(0, 'end')
+            self.txDiaCita.insert(0, cita[3])
+            self.txHoraCita.delete(0, 'end')
+            self.txHoraCita.insert(0, cita[4])
+        else:
+            messagebox.showerror("Error", "¡Cita no encontrada!")
+
+    def eliminarCita(self):
+        conexion = Connection()
+        conexion.deleteCita(self.txIDCita.get())
+        self.mostrarTodasCitas()
+
+    def mostrarTodasCitas(self):
+        for item in self.treeCitas.get_children():
+            self.treeCitas.delete(item)
+        
+        conexion = Connection()
+        conn = conexion.open()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM citas ORDER BY dia, hora")
+            citas = cur.fetchall()
+            for cita in citas:
+                self.treeCitas.insert("", "end", values=cita)
+            cur.close()
+            conexion.close()
+        else:
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+    
+    def obtenerPacientes(self):
+        conexion = Connection()
+        conn = conexion.open()
+        pacientes = []
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT nombre FROM pacientes")
+            pacientes = [paciente[0] for paciente in cur.fetchall()]
+            cur.close()
+            conexion.close()
+        return pacientes
+
+    def obtenerDoctores(self):
+        conexion = Connection()
+        conn = conexion.open()
+        doctores = []
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT nombre FROM doctores")
+            doctores = [doctor[0] for doctor in cur.fetchall()]
+            cur.close()
+            conexion.close()
+        return doctores
+
+    def validarCamposCita(self):
+        if not self.txIDCita.get() or not self.comboPacienteCita.get() or not self.comboDoctorCita.get() \
+                or not self.txDiaCita.get() or not self.txHoraCita.get():
+            messagebox.showerror("Error", "Faltan campos por completar.")
+            return False
+        return True
+    
+    def limpiarCamposCita(self):
+        self.txIDCita.delete(0, 'end')
+        self.comboPacienteCita.set('')
+        self.comboDoctorCita.set('')
+        self.txDiaCita.delete(0, 'end')
+        self.txHoraCita.delete(0, 'end')
+
+        for item in self.treeCitas.get_children():
+            self.treeCitas.delete(item)
 
 if __name__ == "__main__":
     root = tk.Tk()
