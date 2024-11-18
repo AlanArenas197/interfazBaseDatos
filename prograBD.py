@@ -1,3 +1,11 @@
+#Equipo #1
+#ALCOCER CAMARENA CHRISTOPHER
+#ALVIS BENITEZ MARIA MONICA
+#ARCE ZARAGOZA LUIS GILBERTO
+#ARENAS VENEGAS ALAN MARCEL
+#SECCIÓN: D02
+#CALENDARIO: 2024B
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
@@ -231,22 +239,24 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
     
     #!---------------------CITAS---------------------#
 
-    def saveCita(self, codigo, paciente, doctor, dia, hora):
+    def saveCita(self, codigo, paciente_id, doctor_id, dia, hora):
         try:
             conn = self.open()
             cur = conn.cursor()
+
+            #CHECAR DISPONIBILIDAD
             cur.execute("""
                 SELECT * FROM citas 
-                WHERE (paciente = %s OR doctor = %s) AND dia = %s AND hora = %s
-            """, (paciente, doctor, dia, hora))
+                WHERE (paciente_id = %s OR doctor_id = %s) AND dia = %s AND hora = %s
+            """, (paciente_id, doctor_id, dia, hora))
             if cur.fetchone():
                 messagebox.showerror("Error", "Conflicto de horarios: el paciente o doctor ya tiene una cita en esta fecha y hora.")
                 return
 
             cur.execute("""
-                INSERT INTO citas (codigo, paciente, doctor, dia, hora) 
+                INSERT INTO citas (codigo, paciente_id, doctor_id, dia, hora) 
                 VALUES (%s, %s, %s, %s, %s)
-            """, (codigo, paciente, doctor, dia, hora))
+            """, (codigo, paciente_id, doctor_id, dia, hora))
             conn.commit()
             cur.close()
             messagebox.showinfo("Éxito", "Cita guardada correctamente.")
@@ -255,22 +265,22 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
         finally:
             self.close()
 
-    def updateCita(self, codigo, paciente, doctor, dia, hora):
+    def updateCita(self, codigo, paciente_id, doctor_id, dia, hora):
         try:
             conn = self.open()
             cur = conn.cursor()
             cur.execute("""
                 SELECT * FROM citas 
-                WHERE (paciente = %s OR doctor = %s) AND dia = %s AND hora = %s AND codigo != %s
-            """, (paciente, doctor, dia, hora, codigo))
+                WHERE (paciente_id = %s OR doctor_id = %s) AND dia = %s AND hora = %s AND codigo != %s
+            """, (paciente_id, doctor_id, dia, hora, codigo))
             if cur.fetchone():
                 messagebox.showerror("Error", "Conflicto de horarios: el paciente o doctor ya tiene una cita en esta fecha y hora.")
                 return
 
             cur.execute("""
-                UPDATE citas SET paciente=%s, doctor=%s, dia=%s, hora=%s
+                UPDATE citas SET paciente_id=%s, doctor_id=%s, dia=%s, hora=%s
                 WHERE codigo=%s
-            """, (paciente, doctor, dia, hora, codigo))
+            """, (paciente_id, doctor_id, dia, hora, codigo))
             conn.commit()
             cur.close()
             messagebox.showinfo("Éxito", "Cita actualizada correctamente.")
@@ -278,7 +288,7 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
             messagebox.showerror("Error", f"No se pudo actualizar la cita: {e}")
         finally:
             self.close()
-
+            
     def searchCita(self, codigo):
         try:
             conn = self.open()
@@ -296,8 +306,10 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
         try:
             conn = self.open()
             cur = conn.cursor()
+            
             cur.execute("DELETE FROM citas WHERE codigo = %s", (codigo,))
             conn.commit()
+            
             cur.close()
             messagebox.showinfo("Éxito", "Cita eliminada correctamente.")
         except Exception as e:
@@ -703,11 +715,11 @@ class Application(ttk.Frame):
         self.treeCitas.column("codigo", width=50)
         self.treeCitas.heading("codigo", text="Codigo")
 
-        self.treeCitas.column("paciente", width=250)
-        self.treeCitas.heading("paciente", text="Paciente")
+        self.treeCitas.column("paciente", width=50)
+        self.treeCitas.heading("paciente", text="ID Paciente")
 
-        self.treeCitas.column("doctor", width=250)
-        self.treeCitas.heading("doctor", text="Doctor")
+        self.treeCitas.column("doctor", width=50)
+        self.treeCitas.heading("doctor", text="ID Doctor")
 
         self.treeCitas.column("dia", width=100)
         self.treeCitas.heading("dia", text="Dia")
@@ -1108,14 +1120,21 @@ class Application(ttk.Frame):
             conexion.close()
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
-    
+
+    def validarCamposCita(self):
+        if not self.txIDCita.get() or not self.comboPacienteCita.get() or not self.comboDoctorCita.get() \
+                or not self.txDiaCita.get() or not self.txHoraCita.get():
+            messagebox.showerror("Error", "Faltan campos por completar.")
+            return False
+        return True
+
     def obtenerPacientes(self):
         conexion = Connection()
         conn = conexion.open()
         pacientes = []
         if conn:
             cur = conn.cursor()
-            cur.execute("SELECT nombre FROM pacientes")
+            cur.execute("SELECT codigo FROM pacientes")
             pacientes = [paciente[0] for paciente in cur.fetchall()]
             cur.close()
             conexion.close()
@@ -1127,18 +1146,11 @@ class Application(ttk.Frame):
         doctores = []
         if conn:
             cur = conn.cursor()
-            cur.execute("SELECT nombre FROM doctores")
+            cur.execute("SELECT codigo FROM doctores")
             doctores = [doctor[0] for doctor in cur.fetchall()]
             cur.close()
             conexion.close()
         return doctores
-
-    def validarCamposCita(self):
-        if not self.txIDCita.get() or not self.comboPacienteCita.get() or not self.comboDoctorCita.get() \
-                or not self.txDiaCita.get() or not self.txHoraCita.get():
-            messagebox.showerror("Error", "Faltan campos por completar.")
-            return False
-        return True
     
     def limpiarCamposCita(self):
         self.txIDCita.delete(0, 'end')
