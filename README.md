@@ -9,6 +9,9 @@ Este codigo de python se requiere de ciertas interfaces de Python para poder fun
 - Pillow - pip install pillow
 - Psycopg2 - pip install psycopg2
 - Dotenv - pip install python-dotenv
+- FPDF - pip install fpdf
+- DOCX/fpdf extensión - pip install python-docx fpdf
+- PythonDocx - pip install python-docx
 
 ### Integrantes del Equipo 1:
 
