@@ -9,6 +9,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
+from docx.shared import Pt
+from fpdf import FPDF
 import os
 import psycopg2
 import dotenv
@@ -52,6 +54,9 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
             cur = conn.cursor()
             cur.execute("SELECT codigo, nombre FROM empleados WHERE codigo = %s AND contrasenia = %s", (codigo, contrasenia))
             empleado = cur.fetchone()  #? Devuelve el código y nombre del empleado si es válido
+            if not empleado: 
+                cur.execute("SELECT codigo, nombre FROM doctores WHERE codigo = %s AND contrasenia = %s", (codigo, contrasenia)) 
+                empleado = cur.fetchone()
             cur.close()                
             self.close()
             return empleado  #? Retornará el codigo y nombre si es que existe
@@ -314,6 +319,126 @@ class Connection:   #? Se modificó el nombre de la clase 'Connection' con el .e
             messagebox.showinfo("Éxito", "Cita eliminada correctamente.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo eliminar la cita: {e}")
+        finally:
+            self.close()
+    
+    #!---------------------MEDICAMENTOS---------------------#
+
+    def saveMedicina(self, codigo, nombre, via_admin, presentacion, fecha_cad):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO medicamentos (codigo, nombre, via_admin, presentacion, fecha_cad)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (codigo, nombre, via_admin, presentacion, fecha_cad))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Medicamento insertado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo insertar el medicamento: {e}")
+        finally:
+            self.close()
+
+    def updateMedicina(self, codigo, nombre, via_admin, presentacion, fecha_cad):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE medicamentos SET nombre=%s, via_admin=%s, presentacion=%s, fecha_cad=%s
+                WHERE codigo=%s
+            """, (nombre, via_admin, presentacion, fecha_cad, codigo))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Medicamento actualizado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar el medicamento: {e}")
+        finally:
+            self.close()
+
+    def searchMedicina(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM medicamentos WHERE codigo = %s", (codigo,))
+            doctor = cur.fetchone()
+            cur.close()
+            return doctor
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo buscar el medicamento: {e}")
+        finally:
+            self.close()
+    
+    def deleteMedicina(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM medicamentos WHERE codigo = %s", (codigo,))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Medicamento eliminado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar el medicamento: {e}")
+        finally:
+            self.close()
+
+    #!---------------------CONSULTAS---------------------#
+
+    def saveConsulta(self, codigo, id_cita, diagnostico, id_medicamento):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO consultas (codigo, id_cita, diagnostico, id_medicamento)
+                VALUES (%s, %s, %s, %s)
+            """, (codigo, id_cita, diagnostico, id_medicamento))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Consulta insertado correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo insertar la consulta: {e}")
+        finally:
+            self.close()
+
+    def updateConsulta(self, codigo, id_cita, diagnostico, id_medicamento):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE consultas SET id_cita=%s, diagnostico=%s, id_medicamento=%s
+                WHERE codigo=%s
+            """, (id_cita, diagnostico, id_medicamento, codigo))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Consulta actualizada correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar la consulta: {e}")
+        finally:
+            self.close()
+
+    def searchConsulta(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM consultas WHERE codigo = %s", (codigo,))
+            doctor = cur.fetchone()
+            cur.close()
+            return doctor
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo buscar la consulta: {e}")
+        finally:
+            self.close()
+    
+    def deleteConsulta(self, codigo):
+        try:
+            conn = self.open()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM consultas WHERE codigo = %s", (codigo,))
+            conn.commit()
+            cur.close()
+            messagebox.showinfo("Éxito", "Consulta eliminada correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar la consulta: {e}")
         finally:
             self.close()
 
@@ -729,6 +854,142 @@ class Application(ttk.Frame):
 
         self.notebook.add(pestanaCitas, text="Citas")
 
+        #-----------------------MEDICAMENTOS-----------------------#
+
+        pestanaMedicamento = ttk.Frame(self.notebook)
+        pestanaMedicamento.grid_columnconfigure(0, weight=1)
+        pestanaMedicamento.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(pestanaMedicamento, text="Ingrese Codigo:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.txIdMedicamentoBuscar = ttk.Entry(pestanaMedicamento, width=30)
+        self.txIdMedicamentoBuscar.grid(row=0, column=1, padx=10, pady=10)
+
+        self.btnBuscarMedicamento = ttk.Button(pestanaMedicamento, text="Buscar", command=self.buscarMedicamento)
+        self.btnBuscarMedicamento.grid(row=0, column=2, padx=10, pady=10)
+
+        ttk.Label(pestanaMedicamento, text="Codigo:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.txIDMedicamento = ttk.Entry(pestanaMedicamento, width=15)
+        self.txIDMedicamento.grid(row=1, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaMedicamento, text="Nombre:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        self.txNombreMedicamento = ttk.Entry(pestanaMedicamento, width=30)
+        self.txNombreMedicamento.grid(row=2, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaMedicamento, text="Administración:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        self.txAdminMedicamento = ttk.Entry(pestanaMedicamento, width=30)
+        self.txAdminMedicamento.grid(row=3, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaMedicamento, text="Presentación:").grid(row=3, column=2, padx=10, pady=5, sticky="e")
+        self.txPresMedicamento = ttk.Entry(pestanaMedicamento, width=30)
+        self.txPresMedicamento.grid(row=3, column=3, padx=10, pady=5)
+
+        ttk.Label(pestanaMedicamento, text="Fecha de Cad.:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
+        self.txFechaCad = ttk.Entry(pestanaMedicamento, width=30)
+        self.txFechaCad.grid(row=4, column=1, padx=10, pady=5)
+
+        self.btnNuevoMedicamento = ttk.Button(pestanaMedicamento, text="Nuevo", command=self.limpiarDatosMedicamento)
+        self.btnNuevoMedicamento.grid(row=6, column=0, padx=10, pady=10, sticky="e")
+
+        self.btnGuardarMedicamento = ttk.Button(pestanaMedicamento, text="Guardar", command=self.guardarMedicamento)
+        self.btnGuardarMedicamento.grid(row=6, column=1, padx=10, pady=10, sticky="w")
+
+        self.btnCancelarMedicamento = ttk.Button(pestanaMedicamento, text="Cancelar", command=self.limpiarDatosMedicamento)
+        self.btnCancelarMedicamento.grid(row=6, column=2, padx=10, pady=10, sticky="w")
+
+        self.btnEditarMedicamento = ttk.Button(pestanaMedicamento, text="Editar", command=self.actualizarMedicamento)
+        self.btnEditarMedicamento.grid(row=6, column=3, padx=10, pady=10, sticky="w")
+
+        self.btnEliminarMedicamento = ttk.Button(pestanaMedicamento, text="Eliminar", command=self.eliminarMedicamento)
+        self.btnEliminarMedicamento.grid(row=6, column=4, padx=10, pady=10, sticky="w")
+
+        ttk.Label(pestanaMedicamento, text="MEDICAMENTOS:").grid(row=10, column=0, padx=10, pady=10, sticky="e")
+        self.btnMostrarMedicamentos = ttk.Button(pestanaMedicamento, text="Mostrar", command=self.mostrarTodosMedicamentos)
+        self.btnMostrarMedicamentos.grid(row=10, column=1, padx=10, pady=10)
+
+        self.treeMedicamentos = ttk.Treeview(pestanaMedicamento, columns=("codigo", "nombre", "via_admin", "presentacion", "fecha_cad"), show="headings", height=14)
+        self.treeMedicamentos.grid(row=11, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
+        self.treeMedicamentos.column("codigo", width=50)
+        self.treeMedicamentos.heading("codigo", text="Codigo")
+
+        self.treeMedicamentos.column("nombre", width=250)
+        self.treeMedicamentos.heading("nombre", text="Nombre")
+
+        self.treeMedicamentos.column("via_admin", width=250)
+        self.treeMedicamentos.heading("via_admin", text="Via de Aministracion")
+
+        self.treeMedicamentos.column("presentacion", width=100)
+        self.treeMedicamentos.heading("presentacion", text="Presentacion")
+
+        self.treeMedicamentos.column("fecha_cad", width=100)
+        self.treeMedicamentos.heading("fecha_cad", text="Fech. Cad")
+
+        if nombre == "Administrador":
+            self.notebook.add(pestanaMedicamento, text="Medicamentos")
+        
+        #-----------------------CONSULTAS-----------------------#
+
+        pestanaConsultas = ttk.Frame(self.notebook)
+        pestanaConsultas.grid_columnconfigure(0, weight=1)
+        pestanaConsultas.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(pestanaConsultas, text="Ingrese Codigo:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.txIdConsultaBuscar = ttk.Entry(pestanaConsultas, width=30)
+        self.txIdConsultaBuscar.grid(row=0, column=1, padx=10, pady=10)
+
+        self.btnBuscarConsulta = ttk.Button(pestanaConsultas, text="Buscar", command=self.buscarConsulta)
+        self.btnBuscarConsulta.grid(row=0, column=2, padx=10, pady=10)
+
+        ttk.Label(pestanaConsultas, text="ID:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.txIDConsulta = ttk.Entry(pestanaConsultas, width=30)
+        self.txIDConsulta.grid(row=1, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaConsultas, text="ID Cita:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        self.comboIDCitas = ttk.Combobox(pestanaConsultas, values=self.obtenerCitas(), width=15)
+        self.comboIDCitas.grid(row=2, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaConsultas, text="Diagnostico:").grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        self.txDiagnosticoConsulta = tk.Entry(pestanaConsultas, width=30)
+        self.txDiagnosticoConsulta.grid(row=3, column=1, padx=10, pady=5)
+
+        ttk.Label(pestanaConsultas, text="ID Medicamento:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
+        self.comboIDMedicamento = ttk.Combobox(pestanaConsultas, values=self.obtenerMedicamentos(), width=15)
+        self.comboIDMedicamento.grid(row=4, column=1, padx=10, pady=5)
+
+        self.btnNuevaConsulta = ttk.Button(pestanaConsultas, text="Nuevo", command=self.limpiarCamposConsulta)
+        self.btnNuevaConsulta.grid(row=6, column=0, padx=10, pady=10, sticky="e")
+
+        self.btnGuardarConsulta = ttk.Button(pestanaConsultas, text="Guardar", command=self.guardarConsulta)
+        self.btnGuardarConsulta.grid(row=6, column=1, padx=10, pady=10, sticky="w")
+
+        self.btnCancelarConsulta = ttk.Button(pestanaConsultas, text="Cancelar", command=self.limpiarCamposConsulta)
+        self.btnCancelarConsulta.grid(row=6, column=2, padx=10, pady=10, sticky="w")
+
+        self.btnEditarConsulta = ttk.Button(pestanaConsultas, text="Editar", command=self.actualizarConsulta)
+        self.btnEditarConsulta.grid(row=6, column=3, padx=10, pady=10, sticky="w")
+
+        self.btnEliminarConsulta = ttk.Button(pestanaConsultas, text="Eliminar", command=self.eliminarConsulta)
+        self.btnEliminarConsulta.grid(row=6, column=4, padx=10, pady=10, sticky="w")
+
+        ttk.Label(pestanaConsultas, text="CONSULTAS:").grid(row=10, column=0, padx=10, pady=10, sticky="e")
+        self.btnMostrarConsultas = ttk.Button(pestanaConsultas, text="Mostrar", command=self.mostrarTodasConsultas)
+        self.btnMostrarConsultas.grid(row=10, column=1, padx=10, pady=10)
+
+        self.treeConsultas = ttk.Treeview(pestanaConsultas, columns=("codigo", "id_cita", "diagnostico", "id_medicamento"), show="headings", height=14)
+        self.treeConsultas.grid(row=11, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
+        self.treeConsultas.column("codigo", width=50)
+        self.treeConsultas.heading("codigo", text="Codigo")
+
+        self.treeConsultas.column("id_cita", width=50)
+        self.treeConsultas.heading("id_cita", text="ID Cita")
+
+        self.treeConsultas.column("diagnostico", width=300)
+        self.treeConsultas.heading("diagnostico", text="Diagnostico")
+
+        self.treeConsultas.column("id_medicamento", width=50)
+        self.treeConsultas.heading("id_medicamento", text="ID Medicamento")
+
+        self.notebook.add(pestanaConsultas, text="Consultas")
+
         #-----------------------CONFG DEL NOTEBOOK-----------------------#
 
         self.notebook.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
@@ -1101,7 +1362,7 @@ class Application(ttk.Frame):
 
     def eliminarCita(self):
         conexion = Connection()
-        conexion.deleteCita(self.txIDCita.get())
+        conexion.deleteCita(self.txIdCitaBuscar.get())
         self.mostrarTodasCitas()
 
     def mostrarTodasCitas(self):
@@ -1161,6 +1422,254 @@ class Application(ttk.Frame):
 
         for item in self.treeCitas.get_children():
             self.treeCitas.delete(item)
+    
+    #!MEDICAMENTOS
+
+    def limpiarDatosMedicamento(self):
+        self.txIDMedicamento.delete(0, 'end')
+        self.txNombreMedicamento.delete(0, 'end')
+        self.txAdminMedicamento.delete(0, 'end')
+        self.txPresMedicamento.delete(0, 'end')
+        self.txFechaCad.delete(0, 'end')
+        for item in self.treeMedicamentos.get_children():
+            self.treeMedicamentos.delete(item)
+    
+    def guardarMedicamento(self):
+        if self.validarCamposMedicamento():
+            conexion = Connection()
+            conexion.saveMedicina(
+                self.txIDMedicamento.get(),
+                self.txNombreMedicamento.get(),
+                self.txAdminMedicamento.get(),
+                self.txPresMedicamento.get(),
+                self.txFechaCad.get()
+            )
+    
+    def actualizarMedicamento(self):
+        if self.validarCamposMedicamento():
+            conexion = Connection()
+            conexion.updateMedicina(
+                self.txIDMedicamento.get(),
+                self.txNombreMedicamento.get(),
+                self.txAdminMedicamento.get(),
+                self.txPresMedicamento.get(),
+                self.txFechaCad.get()
+            )
+            self.mostrarTodosMedicamentos()
+    
+    def eliminarMedicamento(self):
+        conexion = Connection()
+        conexion.deleteMedicina(self.txIdMedicamentoBuscar.get())
+    
+    def buscarMedicamento(self):
+        conexion = Connection()
+        medicina = conexion.searchMedicina(self.txIdMedicamentoBuscar.get())
+        if medicina:
+            self.limpiarDatosMedicamento()
+            self.txIDMedicamento.insert(0, medicina[0])
+            self.txNombreMedicamento.insert(0, medicina[1])
+            self.txAdminMedicamento.insert(0, medicina[2])
+            self.txPresMedicamento.insert(0, medicina[3])
+            self.txFechaCad.insert(0, medicina[4])
+        else:
+            messagebox.showerror("Error", "Medicina no encontrada!")
+
+    def validarCamposMedicamento(self):
+        if not self.txIDMedicamento.get() or not self.txNombreMedicamento.get() or not self.txAdminMedicamento.get() or not self.txPresMedicamento.get() or not self.txFechaCad.get():
+            messagebox.showerror("Error", "Todos los campos deben ser llenados.")
+            return False
+        return True
+    
+    def mostrarTodosMedicamentos(self):
+        for item in self.treeMedicamentos.get_children():
+            self.treeMedicamentos.delete(item)
+        conexion = Connection()
+        conn = conexion.open()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM medicamentos ORDER by codigo")
+            medicamentos = cur.fetchall()
+            for medicamento in medicamentos:
+                self.treeMedicamentos.insert("", "end", values=medicamento)
+            cur.close()
+            conexion.close()
+        else:
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+    
+    #!CONSULTAS
+
+    def guardarConsulta(self):
+        if self.validarCamposConsulta():
+            conexion = Connection()
+            conexion.saveConsulta(
+                self.txIDConsulta.get(),
+                self.comboIDCitas.get(),
+                self.txDiagnosticoConsulta.get(),
+                self.comboIDMedicamento.get()
+            )
+
+            conn = conexion.open()
+            if conn:
+                cur = conn.cursor()
+                try:
+                    #?Datos del paciente
+                    cur.execute("""
+                        SELECT p.nombre, p.fecha_nac, p.edad, p.sexo, p.direccion, p.telefono, p.estatura
+                        FROM pacientes p
+                        JOIN citas c ON p.codigo = c.paciente_id
+                        WHERE c.codigo = %s
+                    """, (self.comboIDCitas.get(),))
+                    paciente = cur.fetchone()
+
+                    #?Datos del medicamento
+                    cur.execute("""
+                        SELECT nombre FROM medicamentos WHERE codigo = %s
+                    """, (self.comboIDMedicamento.get(),))
+                    medicamento = cur.fetchone()
+
+                    #?Datos del doctor
+                    cur.execute("""
+                        SELECT d.nombre FROM doctores d
+                        JOIN citas c ON d.codigo = c.doctor_id
+                        WHERE c.codigo = %s
+                    """, (self.comboIDCitas.get(),))
+                    doctor = cur.fetchone()
+
+                    if paciente and medicamento and doctor:
+                        self.generarPDFConsulta(paciente, medicamento, doctor, self.txDiagnosticoConsulta.get())
+                    else:
+                        messagebox.showerror("Error", "No se pudieron recuperar todos los datos necesarios para generar el PDF.")
+                finally:
+                    cur.close()
+                    conexion.close()
+
+    def actualizarConsulta(self):
+        if self.validarCamposConsulta():
+            conexion = Connection()
+            conexion.updateConsulta(
+                self.txIDConsulta.get(),
+                self.comboIDCitas.get(),
+                self.txDiagnosticoConsulta.get(),
+                self.comboIDMedicamento.get()
+            )
+            self.mostrarTodasConsultas()
+
+    def buscarConsulta(self):
+        conexion = Connection()
+        consulta = conexion.searchConsulta(self.txIdConsultaBuscar.get())
+        if consulta:
+            self.limpiarCamposConsulta()
+            self.txIDConsulta.insert(0, consulta[0])
+            self.comboIDCitas.set(consulta[1])
+            self.txDiagnosticoConsulta.insert(0, consulta[2])
+            self.comboIDMedicamento.set(consulta[3])
+        else:
+            messagebox.showerror("Error", "¡Consulta no encontrada!")
+
+    def eliminarConsulta(self):
+        conexion = Connection()
+        conexion.deleteConsulta(self.txIdConsultaBuscar.get())
+        self.mostrarTodasConsultas()
+
+    def mostrarTodasConsultas(self):
+        for item in self.treeConsultas.get_children():
+            self.treeConsultas.delete(item)
+        conexion = Connection()
+        conn = conexion.open()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM consultas ORDER BY codigo")
+            consultas = cur.fetchall()
+            for consulta in consultas:
+                self.treeConsultas.insert("", "end", values=consulta)
+            cur.close()
+            conexion.close()
+        else:
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+
+    def validarCamposConsulta(self):
+        if not self.txIDConsulta.get() or not self.comboIDCitas.get() or not self.comboIDMedicamento.get():
+            messagebox.showerror("Error", "Faltan campos por completar.")
+            return False
+        return True
+
+    def obtenerCitas(self):
+        conexion = Connection()
+        conn = conexion.open()
+        citas = []
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT codigo FROM citas")
+            citas = [cita[0] for cita in cur.fetchall()]
+            cur.close()
+            conexion.close()
+        return citas
+
+    def obtenerMedicamentos(self):
+        conexion = Connection()
+        conn = conexion.open()
+        medicamentos = []
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT codigo FROM medicamentos")
+            medicamentos = [medicamento[0] for medicamento in cur.fetchall()]
+            cur.close()
+            conexion.close()
+        return medicamentos
+    
+    def limpiarCamposConsulta(self):
+        self.txIDConsulta.delete(0, 'end')
+        self.comboIDCitas.set('')
+        self.comboIDMedicamento.set('')
+        self.txDiagnosticoConsulta.delete(0, 'end')
+        for item in self.treeConsultas.get_children():
+            self.treeConsultas.delete(item)
+
+    def generarPDFConsulta(self, paciente, medicamento, doctor, diagnostico):
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+
+        #?Título
+        pdf.set_font("Arial", style='B', size=16)
+        pdf.cell(200, 10, "Reporte de Consulta", ln=True, align="C")
+        pdf.ln(10)
+
+        #?Datos del paciente
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, "Datos del Paciente:", ln=True)
+        pdf.cell(200, 10, f"Nombre: {paciente[0]}", ln=True)
+        pdf.cell(200, 10, f"Fecha de Nacimiento: {paciente[1]}", ln=True)
+        pdf.cell(200, 10, f"Edad: {paciente[2]} años", ln=True)
+        pdf.cell(200, 10, f"Sexo: {paciente[3]}", ln=True)
+        pdf.cell(200, 10, f"Direccion: {paciente[4]}", ln=True)
+        pdf.cell(200, 10, f"Telefono: {paciente[5]}", ln=True)
+        pdf.cell(200, 10, f"Estatura: {paciente[6]} cm", ln=True)
+        pdf.ln(10)
+
+        #?Datos del medicamento
+        pdf.cell(200, 10, "Datos del Medicamento:", ln=True)
+        pdf.cell(200, 10, f"Nombre: {medicamento[0]}", ln=True)
+        pdf.cell(200, 10, f"Detalles: {diagnostico}", ln=True)
+        pdf.ln(10)
+
+        #?Datos del doctor
+        pdf.cell(200, 10, "Datos del Doctor:", ln=True)
+        pdf.cell(200, 10, f"Nombre: {doctor[0]}", ln=True)
+        pdf.ln(20)
+
+        #?Logo
+        logo_path = os.path.join(os.getcwd(), "imagenes", "logo.png")
+        if os.path.exists(logo_path):
+            pdf.image(logo_path, x=80, y=pdf.get_y(), w=50)
+
+        #?Guardar PDF
+        output_path = os.path.join(os.getcwd(), "reportes", f"consulta_{self.txIDConsulta.get()}.pdf")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        pdf.output(output_path)
+
+        messagebox.showinfo("Éxito", f"PDF generado correctamente en {output_path}.")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
