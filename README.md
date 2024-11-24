@@ -13,6 +13,11 @@ Este codigo de python se requiere de ciertas interfaces de Python para poder fun
 - DOCX/fpdf extensión - pip install python-docx fpdf
 - PythonDocx - pip install python-docx
 
+Una vez ya instalado estas librerías de Python, en el archivo '.env.example' modificar estas dos líneas:
+DB_PASSWORD=(Su contraseña)
+DB_NAME=(El nombre de la base de datos)
+Y el código funcionará correctamente.
+
 ### Integrantes del Equipo 1:
 
 - Alcocer Camarena Christopher
